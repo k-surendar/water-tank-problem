@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Water Tank Problem</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 30px 16px;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #172033;
+    }
+
+    .container {
+      max-width: 950px;
+      margin: auto;
+      padding: 28px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 30px #0000000c;
+    }
+
+    h1 { margin-top: 0; color: #173b70; }
+    p { line-height: 1.6; color: #536174; }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin: 20px 0 8px;
+    }
+
+    input {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    button {
+      margin-top: 12px;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button:hover { background: #1d4ed8; }
+
+    .example {
+      margin-left: 8px;
+      background: #e2e8f0;
+      color: #172033;
+    }
+
+    .result {
+      margin-top: 22px;
+      padding: 18px;
+      background: #eff6ff;
+      border-radius: 10px;
+    }
+
+    .result strong {
+      font-size: 26px;
+      color: #1d4ed8;
+    }
+
+    .chart {
+      margin-top: 22px;
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      min-width: 320px;
+      height: auto;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+
+    .key {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      margin-right: 6px;
+      border-radius: 3px;
+    }
+
+    .error { color: #dc2626; }
+    .small { font-size: 13px; color: #64748b; }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <h1>Water Tank Problem</h1>
+    <p>
+      Enter the heights of the blocks. The application calculates
+      how much rainwater can be trapped between them.
+    </p>
+
+    <label for="heights">Block heights (comma-separated)</label>
+    <input
+      id="heights"
+      type="text"
+      value="0,4,0,0,0,6,0,6,4,0"
+      placeholder="Example: 0,4,0,0,0,6,0,6,4,0"
+    >
+
+    <button onclick="calculateWater()">Calculate Water</button>
+    <button class="example" onclick="loadExample()">Load Example</button>
+
+    <p id="error" class="error" role="alert"></p>
+
+    <section class="result" aria-live="polite">
+      <div>Total trapped water</div>
+      <strong id="total">18 units</strong>
+      <p id="details" class="small">Water is shown in blue.</p>
+    </section>
+
+    <div class="chart" id="chart" aria-label="Block and water visualization"></div>
+
+    <div class="legend">
+      <span><span class="key" style="background:#facc15"></span>Blocks</span>
+      <span><span class="key" style="background:#06b6d4"></span>Trapped water</span>
+    </div>
+  </main>
+
+  <script>
+    function calculateWater() {
+      const input = document.getElementById("heights").value.trim();
+      const error = document.getElementById("error");
+
+      if (!input) {
+        error.textContent = "Please enter the block heights.";
+        return;
+      }
+
+      const heights = input.split(",").map(value => value.trim());
+
+      if (heights.some(value => value === "" || !/^\d+$/.test(value))) {
+        error.textContent = "Enter non-negative whole numbers separated by commas.";
+        return;
+      }
+
+      const blocks = heights.map(Number);
+
+      if (blocks.length < 3 || blocks.some(h => !Number.isSafeInteger(h))) {
+        error.textContent = "Enter at least 3 valid block heights.";
+        return;
+      }
+
+      if (blocks.length > 100 || Math.max(...blocks) > 100) {
+        error.textContent = "Use at most 100 blocks, each with height at most 100.";
+        return;
+      }
+
+      error.textContent = "";
+
+      const n = blocks.length;
+      const leftMax = [];
+      const rightMax = [];
+      let maxLeft = 0;
+      let maxRight = 0;
+
+      for (let i = 0; i < n; i++) {
+        maxLeft = Math.max(maxLeft, blocks[i]);
+        leftMax[i] = maxLeft;
+      }
+
+      for (let i = n - 1; i >= 0; i--) {
+        maxRight = Math.max(maxRight, blocks[i]);
+        rightMax[i] = maxRight;
+      }
+
+      const water = blocks.map((height, i) =>
+        Math.max(0, Math.min(leftMax[i], rightMax[i]) - height)
+      );
+
+      const total = water.reduce((sum, units) => sum + units, 0);
+
+      document.getElementById("total").textContent = total + " units";
+      document.getElementById("details").textContent =
+        "Block count: " + n + " | Water is shown in blue.";
+
+      drawChart(blocks, water);
+    }
+
+    function drawChart(blocks, water) {
+      const chart = document.getElementById("chart");
+      const maxHeight = Math.max(1, ...blocks.map((h, i) => h + water[i]));
+      const cellW = Math.max(28, Math.min(55, 700 / blocks.length));
+      const cellH = 32;
+      const left = 35;
+      const top = 25;
+      const width = left + blocks.length * cellW + 15;
+      const height = top + (maxHeight + 1) * cellH + 30;
+
+      let svg = `<svg xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 ${width} ${height}" role="img"
+        aria-label="Yellow blocks and blue trapped water">`;
+
+      // Grid lines and height labels
+      for (let level = 0; level <= maxHeight; level++) {
+        const y = top + (maxHeight - level) * cellH;
+        svg += `<line x1="${left}" y1="${y}" x2="${width - 5}" y2="${y}"
+          stroke="#dbe3ed" stroke-width="1"/>`;
+        if (level > 0) {
+          svg += `<text x="25" y="${y + 4}" font-size="11"
+            text-anchor="end" fill="#64748b">${level}</text>`;
+        }
+      }
+
+      blocks.forEach((block, i) => {
+        const x = left + i * cellW;
+        const blockY = top + (maxHeight - block) * cellH;
+        const waterY = top + (maxHeight - block - water[i]) * cellH;
+
+        // Water above the block
+        if (water[i] > 0) {
+          svg += `<rect x="${x + 1}" y="${waterY}" width="${cellW - 2}"
+            height="${water[i] * cellH}" fill="#06b6d4"
+            stroke="#0891b2" stroke-width="0.6"/>`;
+        }
+
+        // Solid block
+        if (block > 0) {
+          svg += `<rect x="${x + 1}" y="${blockY}" width="${cellW - 2}"
+            height="${block * cellH}" fill="#facc15"
+            stroke="#ca8a04" stroke-width="0.6"/>`;
+        }
+
+        svg += `<text x="${x + cellW / 2}" y="${height - 8}"
+          text-anchor="middle" font-size="11" fill="#475569">${i}</text>`;
+      });
+
+      svg += "</svg>";
+      chart.innerHTML = svg;
+    }
+
+    function loadExample() {
+      document.getElementById("heights").value = "0,4,0,0,0,6,0,6,4,0";
+      calculateWater();
+    }
+
+    calculateWater();
+  </script>
+</body>
+</html>
